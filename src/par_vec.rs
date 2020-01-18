@@ -73,25 +73,20 @@ impl<T: fmt::Debug> ParVec<T> {
     pub fn is_empty(&self) -> bool {
         self.len.load(Relaxed) == 0
     }
-    unsafe fn copy_over(&self, data: Atomic<T>, old_cap: usize, g: &Guard) {
+    unsafe fn copy_over(&self, data: Shared<'_, T>, old_cap: usize, g: &Guard) {
         let len = self.len.load(SeqCst);
-        let cap = self.cap.load(SeqCst);
-
         assert_eq!(old_cap, len);
 
-        for idx in 0..old_cap {
-            let data = data.load(SeqCst, &g).as_raw();
-            let val = ptr::read(data.add(idx));
-            println!("{:?}", val);
-            let guard = self.guard.load(SeqCst, &g).as_raw() as *mut T;
-            ptr::write(guard.add(idx), val)
-        }
-
-       println!("COPY OVER {:#?}", self)
+        ptr::copy(
+            data.as_raw(),
+            self.guard.load(SeqCst, g).as_raw() as *mut T,
+            // shift this many elem over
+            old_cap,
+        );
     }
     /// TODO should we grow faster as it is more expensive.
     fn grow(&self, g: &Guard) {
-        atomic::fence(SeqCst);
+        // atomic::fence(SeqCst);
         let cap = self.cap.load(SeqCst);
         let data = self.guard.load(SeqCst, &g);
 
@@ -102,6 +97,7 @@ impl<T: fmt::Debug> ParVec<T> {
         } else {
             let new_cap = cap * 2;
             let ptr = Vec::with_capacity(new_cap).as_ptr();
+            
             (new_cap, Atomic::from(ptr))
         };
 
@@ -109,7 +105,7 @@ impl<T: fmt::Debug> ParVec<T> {
         let _set_result = self.guard.compare_and_set(data, new, SeqCst, &g)
             .map(|old| {
                 let old_cap = self.cap.compare_and_swap(cap, new_cap, SeqCst);
-                unsafe { self.copy_over(Atomic::from(old), old_cap, g) };
+                unsafe { self.copy_over(old, old_cap, g) };
             })
             // TODO is recursion ok???
             .map_err(|_new| self.grow(g));

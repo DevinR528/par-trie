@@ -40,6 +40,7 @@ mod tests {
         let mut count = 10;
         while let Some(x) = guard.pop(&g) {
             count -= 1;
+            println!();
             assert_eq!(x, count);
             
         }
