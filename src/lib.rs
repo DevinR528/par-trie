@@ -7,7 +7,9 @@ use std::ptr;
 use std::sync::atomic::{self, AtomicPtr, AtomicUsize, Ordering::*};
 
 use crossbeam::epoch::{self, Atomic, Owned, Shared};
+use crossbeam_queue::{ArrayQueue, PopError, PushError, SegQueue};
 
+mod buffer;
 mod node;
 mod par_vec;
 use node::Node;
