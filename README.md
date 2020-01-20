@@ -11,17 +11,37 @@ sync data access and manipulation. This also takes care of "garbage collection" 
 nodes that still had readers. The most expensive opperation is resizing the children buckets every
 thread has to sync with the resize controller thread. Once synced up this also happens in parallel.
 
-# Examples
+## Use
+```toml
+[dependencies]
+par-trie = "0.1"
+```
+
+## Examples
 ```rust
-fn main() {
-    let words = "cat cow car".split_whitespace().collect::<Vec<_>>();
-    let mut t = Trie::new();
-    for word in words {
-        let chars = word.chars().collect::<Vec<_>>();
-        t.insert_seq(&chars);
-    }
-    let search = t.find(&['c', 'a']);
-    println!("{:?}", search);
+use rayon::prelude::*;
+use par_trie::ParTrie;
+
+const WORDS: &[&str; 20] = &[
+    "the", "them", "code", "coder", "coding",
+    "crap", "help", "heft", "apple", "hello",
+    "like", "love", "life", "huge", "copy",
+    "cookie", "zebra", "zappy", "king", "trie",
+];
+
+fn rayon_insert() {
+    let t = ParTrie::new();
+
+    WORDS.par_iter().for_each(|word| {
+        t.insert(word.chars());
+    });
+    WORDS.par_iter().enumerate().for_each(|(i, word)| {
+        let found = t.find(word.chars());
+        println!("{:?}", found.as_collected());
+        assert!(
+            found.as_collected().contains(&WORDS[i].chars().collect::<Vec<_>>().as_slice())
+        );
+    });
 }
 ```
 
