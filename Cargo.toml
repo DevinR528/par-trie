@@ -8,5 +8,22 @@ edition = "2018"
 
 [dependencies]
 crossbeam-utils = "0.7"
+crossbeam-epoch = "0.7"
 crossbeam = "0.7"
 crossbeam-queue = "0.2"
+parking_lot = "0.10"
+
+[dev-dependencies]
+rayon = "1.3"
+quickcheck = "0.9"
+criterion = "0.3"
+
+[[bench]]
+name = "partrie"
+harness = false
+path = "./benches/partrie.rs"
+
+[[bin]]
+name = "trie_run"
+doc = false
+path = "./bin/trie_run.rs"

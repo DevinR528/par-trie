@@ -1,14 +1,12 @@
 // use std::alloc::{handle_alloc_error, Alloc, Global, GlobalAlloc, Layout};
 use std::fmt;
-use std::marker::PhantomData;
 use std::mem::{self, MaybeUninit};
 use std::ptr;
 use std::sync::atomic::{self, AtomicPtr, AtomicUsize, Ordering::*};
 use std::sync::Condvar;
 use std::sync::Once;
 
-use crossbeam::epoch::{self, Atomic, Owned, Shared, Guard, Pointer};
-
+use crossbeam::epoch::{self, Atomic, Guard, Owned, Pointer, Shared};
 
 pub struct ParVec<T> {
     guard: Atomic<T>,
@@ -35,10 +33,16 @@ impl<T: fmt::Debug> fmt::Debug for ParVec<T> {
     }
 }
 
+impl<T: fmt::Debug> Default for ParVec<T> {
+    fn default() -> ParVec<T> {
+        Self::new()
+    }
+}
+
 impl<T: fmt::Debug> ParVec<T> {
     /// Creates instance of a parallel vector or `ParVec`.
-    /// 
-    /// 
+    ///
+    ///
     pub fn new() -> ParVec<T> {
         let space = Vec::new();
         let ptr = space.as_ptr();
@@ -53,7 +57,7 @@ impl<T: fmt::Debug> ParVec<T> {
 
     /// Creates instance of `ParVec` with capacity cap. As with
     /// `Vec` this does not actually allocate.
-    /// 
+    ///
     pub fn with_capacity(cap: usize) -> ParVec<T> {
         let space = Vec::with_capacity(cap);
         let ptr = space.as_ptr();
@@ -97,12 +101,14 @@ impl<T: fmt::Debug> ParVec<T> {
         } else {
             let new_cap = cap * 2;
             let ptr = Vec::with_capacity(new_cap).as_ptr();
-            
+
             (new_cap, Atomic::from(ptr))
         };
 
         let new = ptr.load(SeqCst, &g);
-        let _set_result = self.guard.compare_and_set(data, new, SeqCst, &g)
+        let _set_result = self
+            .guard
+            .compare_and_set(data, new, SeqCst, &g)
             .map(|old| {
                 let old_cap = self.cap.compare_and_swap(cap, new_cap, SeqCst);
                 unsafe { self.copy_over(old, old_cap, g) };
@@ -147,4 +153,3 @@ impl<T> Drop for ParVec<T> {
         println!("DROP PARVEC")
     }
 }
-
